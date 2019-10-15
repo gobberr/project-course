@@ -13,19 +13,21 @@ window.App = { // called when web3 is set up
     VotingContract.setProvider(window.web3.currentProvider) 
     VotingContract.defaults({from: window.web3.eth.accounts[0]}) // account selected in metamask   
     
-    VotingContract.deployed().then(function(instance) { // creates an VotingContract instance that represents default address managed by VotingContract
-
+    VotingContract.deployed().then(function(instance) { // creates an VotingContract instance that represents default address managed by VotingContract     
       instance.getNumOfCandidates().then(function(numOfCandidates){ //set up environment  
-        console.log("numero di candidati: " + numOfCandidates)    
+        console.log("Numero di candidati: " + numOfCandidates)    
         if (numOfCandidates == 0){ // adds candidates to Contract if there aren't any
-          console.log("Non ci sono candidati nella blockchain")
+          instance.addCandidate("Candidate1","").then(function(result){            
+            $("#candidate-box").append(`<input class='form-check-input' type='radio' name='candidate' id=${result.logs[0].args.candidateID}><label class='form-check-label' for=0>${candidateName}</label><br>`)
+            console.log("Aggiunto Candidate1")
+          })
+
         }
         else { // if candidates were already added to the contract we loop through them and display them
-          console.log("Ci sono " + numOfCandidates + " candidati nella blockchain")
           for (var i = 0; i < numOfCandidates; i++ ){
             // gets candidates and displays them
             instance.getCandidate(i).then(function(data){
-              $("#candidate-box").append(`<input class="form-check-input" name="candidate" type="radio" id=${data[0]}><label class="form-check-label" for=${data[0]}>${window.web3.toAscii(data[1])}</label><br>`)
+              $("#candidate-box").append(`<input class="form-check-input" name="candidate" type="radio" id=${data[0]}><label class="form-check-label" for=${data[0]}>${window.web3.toAscii(data[1])}</label><br>`)              
             })
           }
         }
@@ -36,11 +38,12 @@ window.App = { // called when web3 is set up
 
 
   vote: function() {
-    //var uid = $("#id-input").val() //getting user inputted id
     var uid = window.web3.eth.accounts[0]
-    console.log("address = " + uid)    
-    if ($("#candidate-box :radio:checked").length = 1) { 
-      var candidateID = $("#candidate-box :radio:checked").id // if both are checked, choose the first one
+    console.log("my address = " + uid)    
+    if ($("#candidate-box :radio:checked").length == 1) { 
+      var candidateID = $('#candidate-box :radio:checked').attr('id')
+      console.log(candidateID)
+      //console.log("you have selected = " + candidateID)
     } else {      
       $("#msg").html("<p>Select the candidate you want to vote</p>") // print message if user didn't vote for candidate
       return
@@ -79,8 +82,10 @@ window.App = { // called when web3 is set up
         $("#msg-candidate").html("<p>Insert the candidate name</p>")
         return
       } else {
-        console.log("name: " + candidateName)
+        console.log("Adding = " + candidateName)
+        //console.log(window.web3.eth.getAccounts())
         instance.addCandidate(candidateName,"").then(function(result){
+          console.log(result.logs[0].args.candidateID)
           $("#candidate-box").append(`<input class='form-check-input' type='radio' name='candidate' id=${result.logs[0].args.candidateID}><label class='form-check-label' for=0>${candidateName}</label><br>`)
         })
       }
@@ -89,15 +94,55 @@ window.App = { // called when web3 is set up
 }
 
 
-window.addEventListener("load", function() {  // When the page loads, we create a web3 instance and set a provider. We then set up the app
+window.addEventListener('load', async () => {  // When the page loads, we create a web3 instance and set a provider. We then set up the app
+  
+  isInstalled()
+  isLocked()
+  
+  if (window.ethereum) {
+    window.web3 = new Web3(ethereum);
+    try {
+        // Request account access if needed
+        await ethereum.enable();
+        // Acccounts now exposed        
+    } catch (error) {
+        // User denied account access...
+    }
+  }
+
   if (typeof web3 !== "undefined") {
-    //console.log(web3)
     // If there is a web3 instance(in Mist/Metamask), then we use its provider to create our web3object
-    window.web3 = new Web3(web3.currentProvider)
+    window.web3 = new Web3(web3.currentProvider)     
+    
   } else {
     // fallback - use your fallback strategy (local node / hosted node + in-dapp id mgmt / fail)
     // window.web3 = new Web3(new Web3.providers.HttpProvider("http://40.78.5.195:9545")) // if blockchain is running on remote server
-    window.web3 = new Web3(new Web3.providers.HttpProvider("http://127.0.0.1:7545"))
+    window.web3 = new Web3(new Web3.providers.HttpProvider("https://127.0.0.1:7545"))
   }
+
   window.App.start() // initializing the App
+  console.log("App started")
 })
+
+function isInstalled() {
+  if (typeof web3 !== 'undefined'){
+     console.log('MetaMask is installed')
+  } 
+  else{
+     console.log('MetaMask is not installed')
+  }
+}
+
+function isLocked() {
+  web3.eth.getAccounts(function(err, accounts){
+     if (err != null) {
+        console.log(err)
+     }
+     else if (accounts.length === 0) {
+        console.log('MetaMask is locked')
+     }
+     else {
+        console.log('MetaMask is unlocked')
+     }
+  });
+}
